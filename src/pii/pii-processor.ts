@@ -105,7 +105,7 @@ export function processPii(event: AuditEvent, config: AuditConfig): AuditEvent {
   }
 
   // Deep clone to avoid mutating the caller's object
-  const cloned: AuditEvent = JSON.parse(JSON.stringify(event)) as AuditEvent;
+  const cloned: AuditEvent = structuredClone(event);
   const root = cloned as unknown as Record<string, unknown>;
 
   for (const fieldPath of config.piiFields) {

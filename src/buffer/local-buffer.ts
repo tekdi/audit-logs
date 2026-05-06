@@ -1,32 +1,48 @@
-import * as fs from 'fs';
+import * as fs from 'fs/promises';
 import * as path from 'path';
 import { AuditConfig } from '../config/audit-config';
 import { EnrichedAuditEvent } from '../types/audit-event';
-import { sdkLog, sleep } from '../utils/sdk-utils';
+import { sdkLog } from '../utils/sdk-utils';
 
 // ---------------------------------------------------------------------------
-// In-memory ring buffer
+// In-memory ring buffer (Pointer-based for O(1) ops)
 // ---------------------------------------------------------------------------
 
 class RingBuffer<T> {
-  private items: T[] = [];
-  constructor(private readonly maxSize: number) {}
+  private items: (T | undefined)[];
+  private head = 0;
+  private tail = 0;
+  private length = 0;
+
+  constructor(private readonly maxSize: number) {
+    this.items = new Array(maxSize);
+  }
 
   push(item: T): void {
-    if (this.items.length >= this.maxSize) {
-      this.items.shift(); // drop oldest
+    this.items[this.tail] = item;
+    this.tail = (this.tail + 1) % this.maxSize;
+    if (this.length < this.maxSize) {
+      this.length++;
+    } else {
+      // Overwriting oldest entry, move head
+      this.head = (this.head + 1) % this.maxSize;
     }
-    this.items.push(item);
   }
 
   drain(): T[] {
-    const all = [...this.items];
-    this.items = [];
+    const all: T[] = [];
+    for (let i = 0; i < this.length; i++) {
+      all.push(this.items[(this.head + i) % this.maxSize] as T);
+    }
+    this.items.fill(undefined);
+    this.head = 0;
+    this.tail = 0;
+    this.length = 0;
     return all;
   }
 
   get size(): number {
-    return this.items.length;
+    return this.length;
   }
 }
 
@@ -34,20 +50,36 @@ class RingBuffer<T> {
 // File-based persistent buffer
 // ---------------------------------------------------------------------------
 
-function readFile(filePath: string): EnrichedAuditEvent[] {
+async function ensureDir(filePath: string): Promise<void> {
+  const dir = path.dirname(filePath);
+  await fs.mkdir(dir, { recursive: true });
+}
+
+/** Reads NDJSON file and returns array of events */
+async function readNdjson(filePath: string): Promise<EnrichedAuditEvent[]> {
   try {
-    if (!fs.existsSync(filePath)) return [];
-    const raw = fs.readFileSync(filePath, 'utf-8');
-    return JSON.parse(raw) as EnrichedAuditEvent[];
-  } catch {
-    return [];
+    const raw = await fs.readFile(filePath, 'utf-8');
+    return raw
+      .split('\n')
+      .filter((line) => line.trim().length > 0)
+      .map((line) => JSON.parse(line) as EnrichedAuditEvent);
+  } catch (err: any) {
+    if (err.code === 'ENOENT') return [];
+    throw err;
   }
 }
 
-function writeFile(filePath: string, events: EnrichedAuditEvent[]): void {
-  const dir = path.dirname(filePath);
-  if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
-  fs.writeFileSync(filePath, JSON.stringify(events, null, 2), 'utf-8');
+/** Appends a single event to NDJSON file */
+async function appendNdjson(filePath: string, event: EnrichedAuditEvent): Promise<void> {
+  await ensureDir(filePath);
+  await fs.appendFile(filePath, JSON.stringify(event) + '\n', 'utf-8');
+}
+
+/** Overwrites NDJSON file with multiple events */
+async function writeNdjson(filePath: string, events: EnrichedAuditEvent[]): Promise<void> {
+  await ensureDir(filePath);
+  const data = events.map((e) => JSON.stringify(e)).join('\n') + (events.length > 0 ? '\n' : '');
+  await fs.writeFile(filePath, data, 'utf-8');
 }
 
 // ---------------------------------------------------------------------------
@@ -66,34 +98,38 @@ export class LocalBuffer {
   }
 
   /** Store an event in the buffer. */
-  store(event: EnrichedAuditEvent): void {
+  async store(event: EnrichedAuditEvent): Promise<void> {
     if (this.config.localStorageType === 'file') {
-      const events = readFile(this.config.localStoragePath);
-      if (events.length >= this.config.localStorageMaxSize) {
-        events.shift(); // drop oldest to enforce max size
-      }
-      events.push(event);
-      writeFile(this.config.localStoragePath, events);
+      // For file-based, we use NDJSON appends for O(1)
+      // Note: Strict maxSize enforcement here would require a full read/write,
+      // so we enforce maxSize during drain() to maintain O(1) appends here.
+      await appendNdjson(this.config.localStoragePath, event);
     } else {
       this.memBuffer.push(event);
     }
-    sdkLog(this.config, 'debug', `Event buffered locally. Buffer size: ${this.getSize()}`);
+    sdkLog(this.config, 'debug', `Event buffered locally. Buffer size incremented.`);
   }
 
   /** Drain all buffered events (empty and return them). */
-  drain(): EnrichedAuditEvent[] {
+  async drain(): Promise<EnrichedAuditEvent[]> {
     if (this.config.localStorageType === 'file') {
-      const events = readFile(this.config.localStoragePath);
-      writeFile(this.config.localStoragePath, []);
+      const events = await readNdjson(this.config.localStoragePath);
+      await writeNdjson(this.config.localStoragePath, []); // Clear file
+      
+      // Enforce max size on the events we just read (in case file grew too large)
+      if (events.length > this.config.localStorageMaxSize) {
+        return events.slice(-this.config.localStorageMaxSize);
+      }
       return events;
     }
     return this.memBuffer.drain();
   }
 
-  /** Current buffer size. */
-  getSize(): number {
+  /** Current buffer size (approximate for file). */
+  async getSize(): Promise<number> {
     if (this.config.localStorageType === 'file') {
-      return readFile(this.config.localStoragePath).length;
+      const events = await readNdjson(this.config.localStoragePath);
+      return events.length;
     }
     return this.memBuffer.size;
   }
@@ -106,7 +142,8 @@ export class LocalBuffer {
     if (this.flushTimer) return;
 
     const poll = async (delayMultiplier = 1) => {
-      if (this.getSize() === 0) {
+      const currentSize = await this.getSize();
+      if (currentSize === 0) {
         // Nothing buffered — sleep and try again
         this.flushTimer = setTimeout(() => { void poll(1); }, this.config.retryDelayMs * 2);
         return;
@@ -115,7 +152,7 @@ export class LocalBuffer {
       if (this.flushing) return;
       this.flushing = true;
 
-      const buffered = this.drain();
+      const buffered = await this.drain();
       try {
         await flushFn(buffered);
         sdkLog(this.config, 'info', `Local buffer flushed ${buffered.length} event(s) successfully.`);
@@ -123,7 +160,13 @@ export class LocalBuffer {
         this.flushTimer = setTimeout(() => { void poll(1); }, this.config.retryDelayMs * 2);
       } catch {
         // Re-buffer everything we failed to flush
-        buffered.forEach(e => this.store(e));
+        // Batch re-buffering to avoid O(N^2)
+        if (this.config.localStorageType === 'file') {
+            await writeNdjson(this.config.localStoragePath, buffered);
+        } else {
+            buffered.forEach(e => this.memBuffer.push(e));
+        }
+        
         this.flushing = false;
         const newDelay = Math.min(this.config.retryDelayMs * 2 * delayMultiplier, 60_000);
         sdkLog(this.config, 'warn', `Buffer flush failed. Retrying in ${newDelay}ms…`);

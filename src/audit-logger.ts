@@ -3,7 +3,7 @@ import { AuditEvent, EnrichedAuditEvent } from './types/audit-event';
 import { shouldCapture } from './filter/event-filter';
 import { processPii } from './pii/pii-processor';
 import { resolveMessage } from './templates/template-resolver';
-import { sendToKafka, disconnectKafka } from './transports/kafka-transport';
+import { KafkaTransport } from './transports/kafka-transport';
 import { sendToApi } from './transports/api-transport';
 import { LocalBuffer } from './buffer/local-buffer';
 import { enrich, sdkLog } from './utils/sdk-utils';
@@ -24,10 +24,12 @@ export interface AuditLoggerOptions extends Partial<AuditConfig> {}
 export class AuditLogger {
   readonly config: AuditConfig;
   private readonly buffer: LocalBuffer;
+  private readonly kafkaTransport: KafkaTransport;
 
   constructor(options: AuditLoggerOptions = {}) {
     this.config = buildConfig(options);
     this.buffer = new LocalBuffer(this.config);
+    this.kafkaTransport = new KafkaTransport(this.config);
 
     if (this.config.localStorageEnabled) {
       this.buffer.startFlushLoop(events => this.flushBuffered(events));
@@ -168,13 +170,13 @@ export class AuditLogger {
     // kafka-only mode
     if (mode === 'kafka') {
       try {
-        await sendToKafka(event, this.config);
+        await this.kafkaTransport.send(event);
         return;
       } catch (err) {
         if (this.config.sdkLogFailures) {
           sdkLog(this.config, 'warn', `Kafka failed (kafka-only mode): ${String(err)}`);
         }
-        this.bufferLocally(event);
+        await this.bufferLocally(event);
         return;
       }
     }
@@ -188,14 +190,14 @@ export class AuditLogger {
         if (this.config.sdkLogFailures) {
           sdkLog(this.config, 'warn', `API failed (api-only mode): ${String(err)}`);
         }
-        this.bufferLocally(event);
+        await this.bufferLocally(event);
         return;
       }
     }
 
     // hybrid mode: Kafka → API → Buffer
     try {
-      await sendToKafka(event, this.config);
+      await this.kafkaTransport.send(event);
       return;
     } catch (kafkaErr) {
       if (this.config.sdkLogFailures) {
@@ -214,16 +216,16 @@ export class AuditLogger {
       }
     }
 
-    this.bufferLocally(event);
+    await this.bufferLocally(event);
   }
 
-  private bufferLocally(event: EnrichedAuditEvent): void {
+  private async bufferLocally(event: EnrichedAuditEvent): Promise<void> {
     if (!this.config.localStorageEnabled) {
       sdkLog(this.config, 'error', 'All transports failed and local buffer is disabled. Event DROPPED.');
       return;
     }
-    this.buffer.store(event);
-    sdkLog(this.config, 'warn', `Event buffered locally. Current buffer size: ${this.buffer.getSize()}`);
+    await this.buffer.store(event);
+    sdkLog(this.config, 'warn', `Event buffered locally. Current buffer size: ${await this.buffer.getSize()}`);
   }
 
   private async flushBuffered(events: EnrichedAuditEvent[]): Promise<void> {
@@ -240,7 +242,7 @@ export class AuditLogger {
   /** Gracefully disconnect Kafka producer and stop the buffer flush loop. */
   async shutdown(): Promise<void> {
     this.buffer.stopFlushLoop();
-    await disconnectKafka();
+    await this.kafkaTransport.disconnect();
   }
 }
 

@@ -16,72 +16,102 @@ async function getKafkaJS() {
   return kafkajsModule;
 }
 
-// Cache a single producer instance per config (re-connected on failure)
-let producer: import('kafkajs').Producer | null = null;
-let connected = false;
+export class KafkaTransport {
+  private producer: import('kafkajs').Producer | null = null;
+  private connected = false;
 
-async function getProducer(config: AuditConfig): Promise<import('kafkajs').Producer> {
-  const { Kafka } = await getKafkaJS();
+  constructor(private readonly config: AuditConfig) {}
 
-  if (producer && connected) return producer;
+  private async getProducer(): Promise<import('kafkajs').Producer> {
+    const { Kafka } = await getKafkaJS();
 
-  const kafkaConfig: import('kafkajs').KafkaConfig = {
-    clientId: config.kafkaClientId,
-    brokers: config.kafkaBrokers,
-    ...(config.kafkaSslEnabled ? { ssl: true } : {}),
-    ...(config.kafkaSaslMechanism
-      ? {
-          sasl: {
-            mechanism: config.kafkaSaslMechanism as 'plain',
-            username: config.kafkaSaslUsername!,
-            password: config.kafkaSaslPassword!,
-          },
-        }
-      : {}),
-  };
+    if (this.producer && this.connected) return this.producer;
 
-  const kafka = new Kafka(kafkaConfig);
-  producer = kafka.producer({ transactionTimeout: config.kafkaProducerTimeoutMs });
-  await producer.connect();
-  connected = true;
-  sdkLog(config, 'info', `Kafka producer connected to ${config.kafkaBrokers.join(', ')}`);
-  return producer;
-}
+    const kafkaConfig: import('kafkajs').KafkaConfig = {
+      clientId: this.config.kafkaClientId,
+      brokers: this.config.kafkaBrokers,
+      requestTimeout: this.config.kafkaProducerTimeoutMs, // Fixed: Use requestTimeout instead of transactionTimeout
+      ...(this.config.kafkaSslEnabled ? { ssl: true } : {}),
+      ...(this.config.kafkaSaslMechanism
+        ? {
+            sasl: {
+              mechanism: this.config.kafkaSaslMechanism as 'plain',
+              username: this.config.kafkaSaslUsername!,
+              password: this.config.kafkaSaslPassword!,
+            },
+          }
+        : {}),
+    };
 
-/**
- * Send an enriched event to the Kafka topic.
- * Throws on failure so the caller can fall back to the next transport.
- */
-export async function sendToKafka(event: EnrichedAuditEvent, config: AuditConfig): Promise<void> {
-  if (config.kafkaBrokers.length === 0) {
-    throw new Error('[audit-logger] No Kafka brokers configured (KAFKA_BROKERS is empty).');
+    const kafka = new Kafka(kafkaConfig);
+    this.producer = kafka.producer(); // Removed incorrect transactionTimeout
+    await this.producer.connect();
+    this.connected = true;
+    sdkLog(this.config, 'info', `Kafka producer connected to ${this.config.kafkaBrokers.join(', ')}`);
+    return this.producer;
   }
 
-  await withRetry(
-    async () => {
-      const prod = await getProducer(config);
-      await prod.send({
-        topic: config.kafkaTopic,
-        messages: [
-          {
-            key: event.entityId ?? event.serviceName,
-            value: JSON.stringify(event),
-          },
-        ],
-      });
-    },
-    config.retryLimit,
-    config.retryDelayMs,
-    'KafkaTransport',
-    config,
-  );
+  /**
+   * Send an enriched event to the Kafka topic.
+   * Throws on failure so the caller can fall back to the next transport.
+   */
+  async send(event: EnrichedAuditEvent): Promise<void> {
+    if (this.config.kafkaBrokers.length === 0) {
+      throw new Error('[audit-logger] No Kafka brokers configured (KAFKA_BROKERS is empty).');
+    }
+
+    await withRetry(
+      async () => {
+        const prod = await this.getProducer();
+        await prod.send({
+          topic: this.config.kafkaTopic,
+          messages: [
+            {
+              key: event.entityId ?? event.serviceName,
+              value: JSON.stringify(event),
+            },
+          ],
+        });
+      },
+      this.config.retryLimit,
+      this.config.retryDelayMs,
+      'KafkaTransport',
+      this.config,
+    );
+  }
+
+  /** Disconnect the Kafka producer. */
+  async disconnect(): Promise<void> {
+    if (this.producer && this.connected) {
+      await this.producer.disconnect();
+      this.producer = null;
+      this.connected = false;
+    }
+  }
 }
 
-/** Disconnect the cached Kafka producer (call on app shutdown). */
+// ---------------------------------------------------------------------------
+// Legacy/Global support (to be removed once all consumers migrate to the class)
+// ---------------------------------------------------------------------------
+
+let defaultTransport: KafkaTransport | null = null;
+
+function getDefaultTransport(config: AuditConfig): KafkaTransport {
+  if (!defaultTransport) {
+    defaultTransport = new KafkaTransport(config);
+  }
+  return defaultTransport;
+}
+
+/** @deprecated Use KafkaTransport class instance */
+export async function sendToKafka(event: EnrichedAuditEvent, config: AuditConfig): Promise<void> {
+  return getDefaultTransport(config).send(event);
+}
+
+/** @deprecated Use KafkaTransport class instance */
 export async function disconnectKafka(): Promise<void> {
-  if (producer && connected) {
-    await producer.disconnect();
-    producer = null;
-    connected = false;
+  if (defaultTransport) {
+    await defaultTransport.disconnect();
+    defaultTransport = null;
   }
 }
