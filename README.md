@@ -9,10 +9,6 @@
 - **Dynamic Localization**: Relies on a centralized template database for dynamic, multi-lingual log messages instead of hard-coded strings.
 - **Partitioned Storage**: Automatically writes logs into service-specific partitions (e.g., `audit_logs_user_service`) in PostgreSQL for highly performant queries at scale.
 
-## Structure
-
-- **`packages/audit-logger`**: The core SDK for Node.js and NestJS.
-- **`apps/audit-api`**: The central Audit API service (NestJS + Partitioned PostgreSQL).
 
 ---
 
@@ -67,13 +63,18 @@ const logger = new AuditLogger({
 - Kafka (optional, for `hybrid` or `kafka` modes)
 
 ### 2. Installation
-From the monorepo root:
+To install the SDK directly from the Git repository into your service, run:
+
 ```bash
-npm install
+# Using HTTPS (requires auth if private repo)
+npm install git+https://github.com/<your-org-name>/audit-logs.git
+
+# OR using SSH (recommended for developers and CI/CD)
+npm install git+ssh://git@github.com:<your-org-name>/audit-logs.git
 ```
-This leverages npm workspaces to install dependencies for both the API service and the SDK package.
 
 ### 3. Environment Variables
+
 
 Copy `.env.example` to your service root to create your own configuration:
 ```bash
@@ -111,40 +112,47 @@ Below is a complete description of the `.env` variables required to run the stac
 | `AUDIT_PII_FIELDS_JSON` | `["metadata.email"]` | JSON array of dot-notated fields that contain PII. |
 | `AUDIT_PARTITIONING_ENABLED` | `true` | Enables PostgreSQL table partitioning by service name. |
 
-### 4. Creating the Database Schema
+### 4. Database Setup (Central Audit API)
 
-Before starting the service, ensure the PostgreSQL database (`audit_service_db`) exists.
+> **⚠️ WARNING:** The SDK consuming microservices **DO NOT** create or manage the database! The database is centrally owned by the separate **Audit API** service.
 
-The application uses TypeORM. In development (`NODE_ENV=development`), it uses `synchronize: true` to automatically create the tables based on your entities. For production deployments, you should transition to using TypeORM migrations.
+Furthermore, because the `audit_logs` table uses **PostgreSQL Table Partitioning** for high performance, TypeORM's `synchronize: true` **WILL NOT work correctly** (it cannot create partitioned tables).
+
+To initialize the database for the central Audit API automatically, simply use the `initializeAuditSchema` utility provided by this SDK once your TypeORM `DataSource` connects.
+
+```typescript
+import { initializeAuditSchema } from '@your-org/audit-logger';
+
+// When your API server initializes its Postgres DB connection:
+await dataSource.initialize();
+await initializeAuditSchema(dataSource);
+console.log('Database partitions and tables initialized successfully');
+```
 
 **Important Note on UUIDs:**
 The `audit_logs` table expects the `actorId` (mapped to `created_by` in DB) and `entityId` to be strict UUIDv4 formats.
 
 ### 5. Running the Service
 
-#### Starting the Audit API
-Run the following from the root:
-```bash
-npm run start:dev --workspace=audit-api
-```
-*(Or navigate to `apps/audit-api` and run `npm run start:dev`)*
+#### Starting the Central Audit API
+Make sure your central Audit API server is running separately with the database initialized. Once your microservice is deployed, this SDK will transmit logs to the central API via REST (`AUDIT_API_BASE_URL`) or Kafka.
 
-The service usually starts on `http://localhost:3000`.
 
 #### Building and Testing the SDK
-If you intend to import the SDK package into another project, build it first:
+To build the SDK:
 ```bash
-npm run build --workspace=audit-logger
+npm run build
 ```
 
 To run the SDK tests:
 ```bash
-cd packages/audit-logger
 npm test
 ```
 
 ## Further Documentation
 Please refer to the dedicated documentation files in the `docs/` folder:
 
+- [Technical Solution](docs/tech-sol.md): High-level architectural decisions, transmission models, and data privacy mechanisms.
+- [Database Design](docs/db-design.md): Details the PostgreSQL schema, including table partitions and core components.
 - [API Documentation](docs/api.md): Endpoints, expected payloads, and the standardized response envelope format.
 - [Features & Architecture](docs/features.md): Details on Kafka transmission, PII masking, data partitioning, and message templating.
