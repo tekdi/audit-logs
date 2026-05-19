@@ -18,6 +18,8 @@ You can install this SDK directly from the Git repository:
 
 ```bash
 npm install git+ssh://git@github.com:tekdi/audit-logs.git
+npm install git+ssh://git@github.com:tekdi/audit-logs.git
+
 ```
 
 ### NestJS Usage
