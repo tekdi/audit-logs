@@ -1,4 +1,4 @@
-# Audit Logger Monorepo
+# Audit Logger Monorepo & SDK
 
 > A plug-and-play, env-driven audit/activity logging SDK for NestJS/Node.js services.
 
@@ -14,7 +14,52 @@
 - **`packages/audit-logger`**: The core SDK for Node.js and NestJS.
 - **`apps/audit-api`**: The central Audit API service (NestJS + Partitioned PostgreSQL).
 
-## Getting Started
+---
+
+## 🚀 SDK Usage in Other Services
+
+You can install this SDK directly from the Git repository:
+
+```bash
+npm install git+https://github.com/<your-org-name>/audit-logs.git
+```
+
+### NestJS Usage
+
+To ensure standard Node applications don't accidentally bundle Nest dependencies, we export the NestJS specific tools from a subpath. 
+
+If you are using NestJS, import the module using the `/nestjs` suffix:
+
+```typescript
+import { AuditLoggerModule } from '@your-org/audit-logger/nestjs';
+
+@Module({
+  imports: [
+    AuditLoggerModule.forRoot({
+      // Your configuration here
+    })
+  ],
+})
+export class AppModule {}
+```
+
+### Standard Node.js Usage
+
+If you are using standard Node.js (like Express, Fastify, etc.), import the SDK from the main path:
+
+```typescript
+import { AuditLogger } from '@your-org/audit-logger';
+
+const logger = new AuditLogger({
+  // Your configuration here
+});
+```
+
+*(Developer Notes: Built with TypeScript. Exposes `nestjs` module via `exports` definition in `package.json`.)*
+
+---
+
+## 🛠️ API & Service Setup
 
 ### 1. Prerequisites
 - Node.js (v18+)
@@ -28,7 +73,7 @@ npm install
 ```
 This leverages npm workspaces to install dependencies for both the API service and the SDK package.
 
-## Environment Variables
+### 3. Environment Variables
 
 Copy `.env.example` to your service root to create your own configuration:
 ```bash
@@ -37,14 +82,14 @@ cp .env.example .env
 
 Below is a complete description of the `.env` variables required to run the stack.
 
-### Core Configuration
+#### Core Configuration
 | Variable | Default Value | Description |
 |---|---|---|
 | `AUDIT_ENABLED` | `true` | Master switch to enable/disable auditing. |
 | `AUDIT_SERVICE_NAME` | `audit-api-service` | The name identifying this service. |
 | `AUDIT_MODE` | `hybrid` | Transmission mode: `api` (REST), `kafka` (queue), or `hybrid` (Kafka with local buffering fallback). |
 
-### Database Configuration (API only)
+#### Database Configuration (API only)
 | Variable | Default Value | Description |
 |---|---|---|
 | `DB_HOST` | `localhost` | PostgreSQL host. |
@@ -53,20 +98,20 @@ Below is a complete description of the `.env` variables required to run the stac
 | `DB_PASSWORD` | `postgres` | Password for PostgreSQL. |
 | `DB_NAME` | `audit_service_db` | Database name. |
 
-### API Protection
+#### API Protection
 | Variable | Default Value | Description |
 |---|---|---|
 | `AUDIT_API_BASE_URL` | `http://localhost:3000/api/v1` | URL where the Audit API is hosted. |
 | `AUDIT_API_KEY` | *(your secret)* | JWT secret or API key used for inter-service authentication via the `x-api-key` header. |
 
-### Advanced Features (PII & Partitions)
+#### Advanced Features (PII & Partitions)
 | Variable | Default Value | Description |
 |---|---|---|
 | `AUDIT_PII_STRATEGY` | `mask` | PII protection strategy: `mask`, `hash`, `encrypt`, or `redact`. |
 | `AUDIT_PII_FIELDS_JSON` | `["metadata.email"]` | JSON array of dot-notated fields that contain PII. |
 | `AUDIT_PARTITIONING_ENABLED` | `true` | Enables PostgreSQL table partitioning by service name. |
 
-## Creating the Database Schema
+### 4. Creating the Database Schema
 
 Before starting the service, ensure the PostgreSQL database (`audit_service_db`) exists.
 
@@ -75,9 +120,9 @@ The application uses TypeORM. In development (`NODE_ENV=development`), it uses `
 **Important Note on UUIDs:**
 The `audit_logs` table expects the `actorId` (mapped to `created_by` in DB) and `entityId` to be strict UUIDv4 formats.
 
-## Running the Service
+### 5. Running the Service
 
-### Starting the Audit API
+#### Starting the Audit API
 Run the following from the root:
 ```bash
 npm run start:dev --workspace=audit-api
@@ -86,7 +131,7 @@ npm run start:dev --workspace=audit-api
 
 The service usually starts on `http://localhost:3000`.
 
-### Building and Testing the SDK
+#### Building and Testing the SDK
 If you intend to import the SDK package into another project, build it first:
 ```bash
 npm run build --workspace=audit-logger
