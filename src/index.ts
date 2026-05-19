@@ -8,3 +8,6 @@ export { buildConfig } from './config/audit-config';
 // TypeORM Entities for consumers
 export { AuditLog } from './entities/audit-log.entity';
 export { MessageTemplate } from './entities/message-template.entity';
+
+// Database Schema Initialization Utility
+export { initializeAuditSchema } from './database/schema-init';
