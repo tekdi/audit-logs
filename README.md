@@ -17,8 +17,6 @@ You can install this SDK directly from the Git repository:
 
 ```bash
 npm install git+ssh://git@github.com:tekdi/audit-logs.git
-npm install git+ssh://git@github.com:tekdi/audit-logs.git
-
 ```
 
 ### NestJS Usage
@@ -34,7 +32,7 @@ import { AuditLoggerModule } from '@your-org/audit-logger/nestjs';
   imports: [
     AuditLoggerModule.forRoot({
       // Your configuration here
-    }),
+    })
   ],
 })
 export class AppModule {}
@@ -52,7 +50,7 @@ const logger = new AuditLogger({
 });
 ```
 
-_(Developer Notes: Built with TypeScript. Exposes `nestjs` module via `exports` definition in `package.json`.)_
+*(Developer Notes: Built with TypeScript. Exposes `nestjs` module via `exports` definition in `package.json`.)*
 
 ---
 
@@ -102,22 +100,22 @@ Below is a complete description of the `.env` variables required to run the stac
 | `DB_PORT`     | `5432`             | PostgreSQL port.             |
 | `DB_USER`     | `postgres`         | User account for PostgreSQL. |
 | `DB_PASSWORD` | `postgres`         | Password for PostgreSQL.     |
-| `DB_NAME`     | `audit_service_db` | Database name.               |
+| `DB_NAME` | `audit_service_db` | Database name. |
 
 #### API Protection
 
-| Variable             | Default Value                  | Description                                                                             |
+| Variable | Default Value | Description |
 | -------------------- | ------------------------------ | --------------------------------------------------------------------------------------- |
-| `AUDIT_API_BASE_URL` | `http://localhost:3000/api/v1` | URL where the Audit API is hosted.                                                      |
-| `AUDIT_API_KEY`      | _(your secret)_                | JWT secret or API key used for inter-service authentication via the `x-api-key` header. |
+| `AUDIT_API_BASE_URL` | `http://localhost:3000/api/v1` | URL where the Audit API is hosted. |
+| `AUDIT_API_KEY` | *(your secret)* | JWT secret or API key used for inter-service authentication via the `x-api-key` header. |
 
 #### Advanced Features (PII & Partitions)
 
-| Variable                     | Default Value        | Description                                                      |
+| Variable | Default Value | Description |
 | ---------------------------- | -------------------- | ---------------------------------------------------------------- |
-| `AUDIT_PII_STRATEGY`         | `mask`               | PII protection strategy: `mask`, `hash`, `encrypt`, or `redact`. |
-| `AUDIT_PII_FIELDS_JSON`      | `["metadata.email"]` | JSON array of dot-notated fields that contain PII.               |
-| `AUDIT_PARTITIONING_ENABLED` | `true`               | Enables PostgreSQL table partitioning by service name.           |
+| `AUDIT_PII_STRATEGY` | `mask` | PII protection strategy: `mask`, `hash`, `encrypt`, or `redact`. |
+| `AUDIT_PII_FIELDS_JSON` | `["metadata.email"]` | JSON array of dot-notated fields that contain PII. |
+| `AUDIT_PARTITIONING_ENABLED` | `true` | Enables PostgreSQL table partitioning by service name. |
 
 ### 4. Database Setup (Central Audit API)
 
