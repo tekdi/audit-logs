@@ -1,13 +1,15 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, OnModuleInit, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, DataSource } from 'typeorm';
-import { AuditLog, EnrichedAuditEvent } from '@tekdi/audit-logger';
+import { AuditLog, EnrichedAuditEvent, initializeAuditSchema } from '@tekdi/audit-logger';
 import { TemplatesService } from '../templates/templates.service';
 import { ConfigService } from '@nestjs/config';
 import { KafkaProducerService } from './kafka-producer.service';
 
 @Injectable()
-export class AuditService {
+export class AuditService implements OnModuleInit {
+  private readonly logger = new Logger(AuditService.name);
+
   constructor(
     @InjectRepository(AuditLog)
     private readonly auditRepo: Repository<AuditLog>,
@@ -16,6 +18,19 @@ export class AuditService {
     private readonly configService: ConfigService,
     private readonly kafkaProducer: KafkaProducerService,
   ) {}
+
+  async onModuleInit() {
+    const partitioningEnabled = this.configService.get<string>('AUDIT_PARTITIONING_ENABLED') === 'true';
+    if (partitioningEnabled) {
+      this.logger.log('Initializing partitioned database schema...');
+      try {
+        await initializeAuditSchema(this.dataSource);
+        this.logger.log('Partitioned schema ready.');
+      } catch (error: any) {
+        this.logger.error('Failed to initialize audit schema partitions', error?.stack || error);
+      }
+    }
+  }
 
   /**
    * Log an enriched audit event.

@@ -4,8 +4,8 @@
   "private": true,
   "scripts": {
     "build": "tsc -p tsconfig.json",
-    "start": "node dist/apps/audit-api/src/main.js",
-    "start:dev": "nest start --watch --exec \"node dist/apps/audit-api/src/main.js\"",
+    "start": "node dist/main.js",
+    "start:dev": "nest start --watch --exec \"node dist/main.js\"",
     "typeorm": "typeorm-ts-node-commonjs"
   },
   "dependencies": {
@@ -14,14 +14,14 @@
     "@nestjs/platform-express": "^10.3.8",
     "@nestjs/typeorm": "^10.0.2",
     "@nestjs/config": "^3.2.2",
-    "typeorm": "^0.3.20",
+    "typeorm": "^0.3.28",
     "pg": "^8.11.5",
     "reflect-metadata": "^0.2.2",
     "rxjs": "^7.8.1",
     "class-transformer": "^0.5.1",
     "class-validator": "^0.14.1",
     "kafkajs": "^2.2.4",
-    "@tekdi/audit-logger": "*"
+    "@tekdi/audit-logger": "file:../../"
   },
   "devDependencies": {
     "@nestjs/cli": "^10.3.2",
