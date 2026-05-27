@@ -24,4 +24,14 @@ The mechanism maps dot-notated fields (e.g. `metadata.email`) using strategies:
 
 ## 4. Multi-tenant / Multi-service Query Isolation
 Since the Audit API aggregates logs from numerous distinct services, a traditional table would suffer from index bloat.
-**Solution:** Table Partitioning. The API binds incoming requests to a PostgreSQL partition list linked dynamically to `service_name`. Queries specific to `payment-service` only scan the physical disk blocks belonging to `audit_logs_payment_service`, granting essentially $O(1)$ scaling capability across microservices.
+**Solution:** Table Partitioning. 
+
+**How it works:**
+Partitioning is managed **entirely by the Audit API (Consumer)**. The SDK producers never interact with the database.
+
+During startup, the Audit API runs the `initializeAuditSchema()` utility. This utility:
+1. Creates the parent `audit_logs` table partitioned by `service_name` (PostgreSQL `LIST` partitioning).
+2. Reads the `AUDIT_DOMAIN_MAPPING_JSON` environment variable to dynamically execute `CREATE TABLE ... PARTITION OF audit_logs` for every registered service (e.g., `audit_logs_user_service`, `audit_logs_lms_service`).
+3. Creates a default catch-all partition (`audit_logs_default`) to safely handle logs from unregistered services without crashing.
+
+When the Audit API persists a log, PostgreSQL automatically routes the record into the correct physical partition based on the `serviceName` field. Queries specific to `payment-service` only scan the physical disk blocks belonging to `audit_logs_payment_service`, granting essentially $O(1)$ scaling capability across microservices.
