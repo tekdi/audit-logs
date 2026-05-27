@@ -15,7 +15,7 @@ import { KafkaProducerService } from './audit/kafka-producer.service';
   imports: [
     ConfigModule.forRoot({ 
       isGlobal: true,
-      envFilePath: 'apps/audit-api/.env'
+      envFilePath: process.env.NODE_ENV === 'development' ? 'apps/audit-api/.env' : undefined
     }),
     TypeOrmModule.forRootAsync({
       imports: [ConfigModule],

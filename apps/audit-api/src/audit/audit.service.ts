@@ -28,6 +28,7 @@ export class AuditService implements OnModuleInit {
         this.logger.log('Partitioned schema ready.');
       } catch (error: any) {
         this.logger.error('Failed to initialize audit schema partitions', error?.stack || error);
+        throw error;
       }
     }
   }
