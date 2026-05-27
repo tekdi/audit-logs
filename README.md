@@ -77,36 +77,12 @@ Producer Services (user-service, lms-service, etc.)
 
 ### Installation Process
 
-You have two options depending on your setup:
-
-#### Option A: Local Installation (For Development / Monorepos)
-**Step 1 — Clone Repository**
-```bash
-git clone https://github.com/tekdi/audit-logs.git
-```
-
-**Step 2 — Go to Your Service**
-```bash
-cd user-microservice
-```
-
-**Step 3 — Install Package From Local Path**
-```bash
-npm install ../audit-logs
-```
-> **Alternative:** You can also manually add `"@tekdi/audit-logger": "file:../audit-logs"` to your `package.json` dependencies and run `npm install`.
-
----
-
-#### Option B: Remote Installation (For CI/CD)
 Install the SDK directly from GitHub into any microservice without cloning the repo locally:
 
 ```bash
 # Recommended (HTTPS — works everywhere)
-npm install git+https://github.com/tekdi/audit-logs.git
+npm install git+https://github.com/tekdi/audit-logs.git#product-release1.0.0
 
-# SSH (Alternative for CI/CD with deploy keys)
-npm install git+ssh://git@github.com:tekdi/audit-logs.git
 ```
 
 ### NestJS Integration
