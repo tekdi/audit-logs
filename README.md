@@ -75,7 +75,31 @@ Producer Services (user-service, lms-service, etc.)
 
 ## 🚀 Part 1 — SDK (Producer Setup)
 
-Install the SDK into any microservice that needs to emit audit events:
+### Installation Process
+
+You have two options depending on your setup:
+
+#### Option A: Local Installation (For Development / Monorepos)
+**Step 1 — Clone Repository**
+```bash
+git clone https://github.com/tekdi/audit-logs.git
+```
+
+**Step 2 — Go to Your Service**
+```bash
+cd user-microservice
+```
+
+**Step 3 — Install Package From Local Path**
+```bash
+npm install ../audit-logs
+```
+> **Alternative:** You can also manually add `"@tekdi/audit-logger": "file:../audit-logs"` to your `package.json` dependencies and run `npm install`.
+
+---
+
+#### Option B: Remote Installation (For CI/CD)
+Install the SDK directly from GitHub into any microservice without cloning the repo locally:
 
 ```bash
 # Recommended (HTTPS — works everywhere)
@@ -101,7 +125,7 @@ import { AuditLoggerModule } from '@tekdi/audit-logger/nestjs';
   ],
 })
 export class AppModule {}
-```
+````
 
 Inject and use `AuditLoggerService` in any service:
 
@@ -163,83 +187,91 @@ Every call to `emit()` runs through the following steps:
 
 ### SDK Transport Modes
 
-| `AUDIT_MODE` | Behaviour |
-|---|---|
-| `kafka` | Send to Kafka. On failure → buffer locally |
-| `api` | POST to Audit API REST endpoint. On failure → buffer locally |
-| `hybrid` | Try Kafka first → fall back to REST → fall back to local buffer |
+| `AUDIT_MODE` | Behaviour                                                       |
+| ------------ | --------------------------------------------------------------- |
+| `kafka`      | Send to Kafka. On failure → buffer locally                      |
+| `api`        | POST to Audit API REST endpoint. On failure → buffer locally    |
+| `hybrid`     | Try Kafka first → fall back to REST → fall back to local buffer |
 
 ### Required SDK Environment Variables
 
 Add these to the `.env` of **each producer microservice**:
 
 #### Core
-| Variable | Default | Description |
-|---|---|---|
-| `AUDIT_ENABLED` | `true` | Master on/off switch |
-| `AUDIT_SERVICE_NAME` | *(required)* | Unique name for this service (e.g. `user-service`) |
-| `AUDIT_MODE` | `hybrid` | `kafka`, `api`, or `hybrid` |
-| `AUDIT_ENV` | `production` | Environment label |
+
+| Variable             | Default      | Description                                        |
+| -------------------- | ------------ | -------------------------------------------------- |
+| `AUDIT_ENABLED`      | `true`       | Master on/off switch                               |
+| `AUDIT_SERVICE_NAME` | _(required)_ | Unique name for this service (e.g. `user-service`) |
+| `AUDIT_MODE`         | `hybrid`     | `kafka`, `api`, or `hybrid`                        |
+| `AUDIT_ENV`          | `production` | Environment label                                  |
 
 #### Kafka (for `kafka` or `hybrid` mode)
-| Variable | Default | Description |
-|---|---|---|
-| `KAFKA_BROKERS` | `localhost:9092` | Comma-separated broker list |
-| `KAFKA_TOPIC` | `audit.events` | Topic to produce to |
-| `KAFKA_CLIENT_ID` | *(AUDIT_SERVICE_NAME)* | Kafka client identifier |
-| `KAFKA_SSL_ENABLED` | `false` | Enable Kafka SSL |
-| `KAFKA_SASL_MECHANISM` | — | `plain`, `scram-sha-256`, or `scram-sha-512` |
-| `KAFKA_SASL_USERNAME` | — | SASL username |
-| `KAFKA_SASL_PASSWORD` | — | SASL password |
-| `KAFKA_PRODUCER_TIMEOUT_MS` | `5000` | Producer request timeout |
+
+| Variable                    | Default                | Description                                  |
+| --------------------------- | ---------------------- | -------------------------------------------- |
+| `KAFKA_BROKERS`             | `localhost:9092`       | Comma-separated broker list                  |
+| `KAFKA_TOPIC`               | `audit.events`         | Topic to produce to                          |
+| `KAFKA_CLIENT_ID`           | _(AUDIT_SERVICE_NAME)_ | Kafka client identifier                      |
+| `KAFKA_SSL_ENABLED`         | `false`                | Enable Kafka SSL                             |
+| `KAFKA_SASL_MECHANISM`      | —                      | `plain`, `scram-sha-256`, or `scram-sha-512` |
+| `KAFKA_SASL_USERNAME`       | —                      | SASL username                                |
+| `KAFKA_SASL_PASSWORD`       | —                      | SASL password                                |
+| `KAFKA_PRODUCER_TIMEOUT_MS` | `5000`                 | Producer request timeout                     |
 
 #### Audit API Fallback (for `api` or `hybrid` mode)
-| Variable | Default | Description |
-|---|---|---|
-| `AUDIT_API_BASE_URL` | `http://localhost:3001/api/v1` | URL of the running Audit API |
-| `AUDIT_API_KEY` | *(your secret)* | Shared secret sent as `x-api-key` header |
-| `AUDIT_API_ENABLED` | `true` | Enable REST fallback |
-| `AUDIT_API_TIMEOUT_MS` | `8000` | REST call timeout |
+
+| Variable               | Default                        | Description                              |
+| ---------------------- | ------------------------------ | ---------------------------------------- |
+| `AUDIT_API_BASE_URL`   | `http://localhost:3001/api/v1` | URL of the running Audit API             |
+| `AUDIT_API_KEY`        | _(your secret)_                | Shared secret sent as `x-api-key` header |
+| `AUDIT_API_ENABLED`    | `true`                         | Enable REST fallback                     |
+| `AUDIT_API_TIMEOUT_MS` | `8000`                         | REST call timeout                        |
 
 #### Local Buffer (Safety Net)
-| Variable | Default | Description |
-|---|---|---|
-| `AUDIT_SDK_RETRY_LIMIT` | `3` | Retry attempts before buffering |
-| `AUDIT_SDK_RETRY_DELAY_MS` | `500` | Delay between retries |
-| `AUDIT_LOCAL_STORAGE_ENABLED` | `true` | Enable local fallback buffer |
-| `AUDIT_LOCAL_STORAGE_TYPE` | `memory` | `memory` or `file` |
-| `AUDIT_LOCAL_STORAGE_PATH` | `./.audit-buffer.json` | Path for file-based buffer |
-| `AUDIT_LOCAL_STORAGE_MAX_SIZE` | `1000` | Max buffered events |
+
+| Variable                       | Default                | Description                     |
+| ------------------------------ | ---------------------- | ------------------------------- |
+| `AUDIT_SDK_RETRY_LIMIT`        | `3`                    | Retry attempts before buffering |
+| `AUDIT_SDK_RETRY_DELAY_MS`     | `500`                  | Delay between retries           |
+| `AUDIT_LOCAL_STORAGE_ENABLED`  | `true`                 | Enable local fallback buffer    |
+| `AUDIT_LOCAL_STORAGE_TYPE`     | `memory`               | `memory` or `file`              |
+| `AUDIT_LOCAL_STORAGE_PATH`     | `./.audit-buffer.json` | Path for file-based buffer      |
+| `AUDIT_LOCAL_STORAGE_MAX_SIZE` | `1000`                 | Max buffered events             |
 
 #### Event Filtering
-| Variable | Default | Description |
-|---|---|---|
-| `AUDIT_CAPTURE_ALL` | `true` | Capture all events unless excluded |
-| `AUDIT_INCLUDED_EVENTS_JSON` | `[]` | Allowlist: `["service.ENTITY.ACTION"]` |
-| `AUDIT_EXCLUDED_EVENTS_JSON` | `[]` | Denylist: `["service.SYSTEM.HEALTH_CHECK"]` |
+
+| Variable                     | Default | Description                                 |
+| ---------------------------- | ------- | ------------------------------------------- |
+| `AUDIT_CAPTURE_ALL`          | `true`  | Capture all events unless excluded          |
+| `AUDIT_INCLUDED_EVENTS_JSON` | `[]`    | Allowlist: `["service.ENTITY.ACTION"]`      |
+| `AUDIT_EXCLUDED_EVENTS_JSON` | `[]`    | Denylist: `["service.SYSTEM.HEALTH_CHECK"]` |
 
 #### PII Protection
-| Variable | Default | Description |
-|---|---|---|
-| `AUDIT_PII_STRATEGY` | `none` | `mask`, `hash`, `encrypt`, or `none` |
-| `AUDIT_PII_FIELDS_JSON` | `[]` | Dot-notated field paths: `["metadata.email"]` |
-| `AUDIT_PII_MASK_CONFIG_JSON` | `{}` | Per-field mask rules |
-| `AUDIT_PII_HASH_ALGORITHM` | `sha256` | Hash algorithm |
-| `AUDIT_PII_ENCRYPT_KEY` | — | 32-byte base64 key (required for `encrypt`) |
+
+| Variable                     | Default  | Description                                   |
+| ---------------------------- | -------- | --------------------------------------------- |
+| `AUDIT_PII_STRATEGY`         | `none`   | `mask`, `hash`, `encrypt`, or `none`          |
+| `AUDIT_PII_FIELDS_JSON`      | `[]`     | Dot-notated field paths: `["metadata.email"]` |
+| `AUDIT_PII_MASK_CONFIG_JSON` | `{}`     | Per-field mask rules                          |
+| `AUDIT_PII_HASH_ALGORITHM`   | `sha256` | Hash algorithm                                |
+| `AUDIT_PII_ENCRYPT_KEY`      | —        | 32-byte base64 key (required for `encrypt`)   |
 
 #### Localization & Templates
-| Variable | Default | Description |
-|---|---|---|
-| `AUDIT_DEFAULT_LANGUAGE` | `en` | Default message language |
-| `AUDIT_TEMPLATE_FALLBACK_LANGUAGE` | `en` | Fallback language lookup |
-| `AUDIT_TEMPLATE_MAPPING_JSON` | `{}` | Event key → template key map |
+
+| Variable                           | Default | Description                  |
+| ---------------------------------- | ------- | ---------------------------- |
+| `AUDIT_DEFAULT_LANGUAGE`           | `en`    | Default message language     |
+| `AUDIT_TEMPLATE_FALLBACK_LANGUAGE` | `en`    | Fallback language lookup     |
+| `AUDIT_TEMPLATE_MAPPING_JSON`      | `{}`    | Event key → template key map |
 
 #### Observability
-| Variable | Default | Description |
-|---|---|---|
-| `AUDIT_SDK_LOG_LEVEL` | `warn` | `debug`, `info`, `warn`, `error`, `silent` |
-| `AUDIT_SDK_LOG_FAILURES` | `true` | Log transport failures to console |
-| `AUDIT_METRICS_ENABLED` | `false` | Enable internal metrics collection |
+
+| Variable                 | Default | Description                                |
+| ------------------------ | ------- | ------------------------------------------ |
+| `AUDIT_SDK_LOG_LEVEL`    | `warn`  | `debug`, `info`, `warn`, `error`, `silent` |
+| `AUDIT_SDK_LOG_FAILURES` | `true`  | Log transport failures to console          |
+| `AUDIT_METRICS_ENABLED`  | `false` | Enable internal metrics collection         |
 
 ---
 
@@ -334,23 +366,23 @@ console.log('Partitioned schema ready.');
 
 All endpoints require `x-api-key: <AUDIT_API_KEY>` header.
 
-| Method | Path | Description |
-|---|---|---|
-| `POST` | `/api/v1/audit/log` | Ingest a single audit event directly |
-| `GET` | `/api/v1/audit/logs` | Query logs with filters |
-| `GET/POST/…` | `/api/v1/templates` | Manage human-readable message templates |
+| Method       | Path                 | Description                             |
+| ------------ | -------------------- | --------------------------------------- |
+| `POST`       | `/api/v1/audit/log`  | Ingest a single audit event directly    |
+| `GET`        | `/api/v1/audit/logs` | Query logs with filters                 |
+| `GET/POST/…` | `/api/v1/templates`  | Manage human-readable message templates |
 
 **Query parameters for `GET /api/v1/audit/logs`:**
 
-| Param | Description |
-|---|---|
-| `service_name` | Filter by service name |
-| `entity_type` | Filter by entity type |
-| `status` | Filter by status (`SUCCESS`, `FAILED`) |
-| `start_date` / `end_date` | Date range filter |
-| `search` | Full-text search on `human_message` / `event_action` |
-| `page` / `limit` | Pagination (max `limit=100`) |
-| `order` | `asc` or `desc` (default: `desc`) |
+| Param                     | Description                                          |
+| ------------------------- | ---------------------------------------------------- |
+| `service_name`            | Filter by service name                               |
+| `entity_type`             | Filter by entity type                                |
+| `status`                  | Filter by status (`SUCCESS`, `FAILED`)               |
+| `start_date` / `end_date` | Date range filter                                    |
+| `search`                  | Full-text search on `human_message` / `event_action` |
+| `page` / `limit`          | Pagination (max `limit=100`)                         |
+| `order`                   | `asc` or `desc` (default: `desc`)                    |
 
 ---
 
@@ -375,12 +407,12 @@ npm test
 
 ## 📚 Further Documentation
 
-| File | Contents |
-|---|---|
-| [docs/setup.md](docs/setup.md) | Step-by-step setup guide for SDK producers and the Audit API |
-| [docs/tech-sol.md](docs/tech-sol.md) | High-level architectural decisions and transmission models |
-| [docs/db-design.md](docs/db-design.md) | PostgreSQL schema, partitions, and indexes |
-| [docs/api.md](docs/api.md) | REST API endpoints and payloads |
-| [docs/features.md](docs/features.md) | PII masking, partitioning, templates, and Kafka details |
-| [docs/ENV_CONFIGURATION.md](docs/ENV_CONFIGURATION.md) | Full environment variable reference |
-| [docs/KAFKA_TESTING_GUIDE.md](docs/KAFKA_TESTING_GUIDE.md) | How to test Kafka integration end-to-end |
+| File                                                       | Contents                                                     |
+| ---------------------------------------------------------- | ------------------------------------------------------------ |
+| [docs/setup.md](docs/setup.md)                             | Step-by-step setup guide for SDK producers and the Audit API |
+| [docs/tech-sol.md](docs/tech-sol.md)                       | High-level architectural decisions and transmission models   |
+| [docs/db-design.md](docs/db-design.md)                     | PostgreSQL schema, partitions, and indexes                   |
+| [docs/api.md](docs/api.md)                                 | REST API endpoints and payloads                              |
+| [docs/features.md](docs/features.md)                       | PII masking, partitioning, templates, and Kafka details      |
+| [docs/ENV_CONFIGURATION.md](docs/ENV_CONFIGURATION.md)     | Full environment variable reference                          |
+| [docs/KAFKA_TESTING_GUIDE.md](docs/KAFKA_TESTING_GUIDE.md) | How to test Kafka integration end-to-end                     |
