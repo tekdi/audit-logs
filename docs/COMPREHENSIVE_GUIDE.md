@@ -54,11 +54,11 @@ The Audit Logger is an enterprise-ready system designed to capture, protect (PII
 ---
 
 ## 6. Integration & Schema Initialization
-The package `@your-org/audit-logger` implements advanced **PostgreSQL Table Partitioning** which TypeORM cannot automatically `synchronize`. To fix this, we provide a schema initialization utility.
+The package `@tekdi/audit-logger` implements advanced **PostgreSQL Table Partitioning** which TypeORM cannot automatically `synchronize`. To fix this, we provide a schema initialization utility.
 
 ### Usage in NestJS/TypeORM API Setup:
 ```typescript
-import { AuditLog, MessageTemplate, initializeAuditSchema } from '@your-org/audit-logger';
+import { AuditLog, MessageTemplate, initializeAuditSchema } from '@tekdi/audit-logger';
 
 // 1. Supply entities to TypeORM
 TypeOrmModule.forRoot({

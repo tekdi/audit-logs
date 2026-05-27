@@ -60,11 +60,23 @@ export async function initializeAuditSchema(dataSource: DataSource): Promise<voi
       PARTITION OF audit_logs DEFAULT;
     `);
 
-    // 4. Create common partitions (optional, consumers can create more for their own services)
-    await queryRunner.query(`
-      CREATE TABLE IF NOT EXISTS audit_logs_user_service
-      PARTITION OF audit_logs FOR VALUES IN ('user-service', 'user_service');
-    `);
+    // 4. Create dynamic partitions based on AUDIT_DOMAIN_MAPPING_JSON
+    const mappingJson = process.env.AUDIT_DOMAIN_MAPPING_JSON;
+    if (mappingJson) {
+      try {
+        const mapping = JSON.parse(mappingJson);
+        const services = Object.keys(mapping);
+        for (const service of services) {
+          const tableName = `audit_logs_${service.replace(/-/g, '_')}`;
+          await queryRunner.query(`
+            CREATE TABLE IF NOT EXISTS ${tableName}
+            PARTITION OF audit_logs FOR VALUES IN ('${service}');
+          `);
+        }
+      } catch (e) {
+        console.error('Failed to parse AUDIT_DOMAIN_MAPPING_JSON', e);
+      }
+    }
 
     // 5. Indexes
     await queryRunner.query(`CREATE INDEX IF NOT EXISTS idx_audit_service_name ON audit_logs (service_name);`);
