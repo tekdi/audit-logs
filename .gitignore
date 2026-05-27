@@ -1,0 +1,27 @@
+# Dependencies
+node_modules/
+dist/
+build/
+.npm
+.eslintcache
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# IDEs and Editors
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Project specific
+apps/audit-api/dist/
+.audit-buffer.json
+logs/
+*.log
