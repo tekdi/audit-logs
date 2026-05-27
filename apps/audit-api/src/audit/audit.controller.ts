@@ -1,6 +1,6 @@
 import { Controller, Post, Get, Body, Query, UseGuards } from '@nestjs/common';
 import { AuditService } from './audit.service';
-import { EnrichedAuditEvent } from '../../../../packages/audit-logger/src/types/audit-event';
+import { EnrichedAuditEvent } from '@tekdi/audit-logger';
 
 @Controller('api/v1/audit')
 export class AuditController {

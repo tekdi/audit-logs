@@ -16,7 +16,13 @@
     "noImplicitAny": false,
     "strictBindCallApply": false,
     "forceConsistentCasingInFileNames": false,
-    "noFallthroughCasesInSwitch": false
+    "noFallthroughCasesInSwitch": false,
+    "paths": {
+      "typeorm": ["../../node_modules/typeorm"],
+      "@nestjs/common": ["../../node_modules/@nestjs/common"],
+      "@nestjs/core": ["../../node_modules/@nestjs/core"],
+      "@tekdi/audit-logger": ["../../"]
+    }
   },
   "include": ["src/**/*"]
 }

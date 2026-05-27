@@ -13,7 +13,10 @@ import { KafkaProducerService } from './audit/kafka-producer.service';
 
 @Module({
   imports: [
-    ConfigModule.forRoot({ isGlobal: true }),
+    ConfigModule.forRoot({ 
+      isGlobal: true,
+      envFilePath: 'apps/audit-api/.env'
+    }),
     TypeOrmModule.forRootAsync({
       imports: [ConfigModule],
       inject: [ConfigService],
@@ -26,7 +29,7 @@ import { KafkaProducerService } from './audit/kafka-producer.service';
         database: config.get<string>('DB_NAME', 'audit_service_db'),
         ssl: config.get<string>('DB_SSL') === 'true' ? { rejectUnauthorized: false } : false,
         entities: [AuditLog, MessageTemplate],
-        synchronize: config.get<string>('NODE_ENV') !== 'production', // Use migrations for prod
+        synchronize: false, // Using custom initializeAuditSchema for partitions
         logging: true,
       }),
     }),
