@@ -26,7 +26,7 @@
     "test": "jest --runInBand",
     "lint": "eslint src --ext .ts",
     "prepare": "npm run build",
-    "start:consumer": "nest start --path apps/audit-api/tsconfig.json --watch --exec \"node apps/audit-api/dist/main.js\""
+    "start:consumer": "NODE_ENV=development nest start --path apps/audit-api/tsconfig.json --watch --exec \"node apps/audit-api/dist/main.js\""
   },
   "dependencies": {
     "pg": "^8.11.5",
