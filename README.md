@@ -40,7 +40,7 @@ audit-logs/
 │           └── database/                     # TypeORM DataSource configuration
 │
 ├── docs/                       # Supplementary documentation
-└── package.json                # SDK package: @your-org/audit-logger v2.0.0
+└── package.json                # SDK package: @tekdi/audit-logger v2.0.0
 ```
 
 ---
@@ -50,7 +50,7 @@ audit-logs/
 ```
 Producer Services (user-service, lms-service, etc.)
         │
-        │  npm install @your-org/audit-logger   [SDK: src/]
+        │  npm install @tekdi/audit-logger   [SDK: src/]
         │
         │  auditLogger.emit(event)
         │
@@ -78,11 +78,11 @@ Producer Services (user-service, lms-service, etc.)
 Install the SDK into any microservice that needs to emit audit events:
 
 ```bash
-# SSH (recommended for CI/CD)
-npm install git+ssh://git@github.com:tekdi/audit-logs.git
-
-# HTTPS
+# Recommended (HTTPS — works everywhere)
 npm install git+https://github.com/tekdi/audit-logs.git
+
+# SSH (Alternative for CI/CD with deploy keys)
+npm install git+ssh://git@github.com:tekdi/audit-logs.git
 ```
 
 ### NestJS Integration
@@ -90,7 +90,7 @@ npm install git+https://github.com/tekdi/audit-logs.git
 Import the global module in your root `AppModule`:
 
 ```typescript
-import { AuditLoggerModule } from '@your-org/audit-logger/nestjs';
+import { AuditLoggerModule } from '@tekdi/audit-logger/nestjs';
 
 @Module({
   imports: [
@@ -106,7 +106,7 @@ export class AppModule {}
 Inject and use `AuditLoggerService` in any service:
 
 ```typescript
-import { AuditLoggerService } from '@your-org/audit-logger/nestjs';
+import { AuditLoggerService } from '@tekdi/audit-logger/nestjs';
 
 @Injectable()
 export class CohortService {
@@ -126,7 +126,7 @@ export class CohortService {
 ### Plain Node.js / Express Integration
 
 ```typescript
-import { AuditLogger } from '@your-org/audit-logger';
+import { AuditLogger } from '@tekdi/audit-logger';
 
 const logger = new AuditLogger(); // reads from process.env automatically
 
@@ -321,7 +321,7 @@ AUDIT_DOMAIN_MAPPING_JSON='{
 Because the `audit_logs` table uses **PostgreSQL Table Partitioning**, TypeORM's `synchronize: true` cannot create the correct schema. Use the SDK's built-in utility when the Audit API starts:
 
 ```typescript
-import { initializeAuditSchema } from '@your-org/audit-logger';
+import { initializeAuditSchema } from '@tekdi/audit-logger';
 
 await dataSource.initialize();
 await initializeAuditSchema(dataSource);
