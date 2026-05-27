@@ -77,17 +77,40 @@ Producer Services (user-service, lms-service, etc.)
 
 ### Installation Process
 
-Install the SDK directly from GitHub into any microservice without cloning the repo locally:
-
-```bash
+````bash
 # Recommended (HTTPS — works everywhere)
 npm install git+https://github.com/tekdi/audit-logs.git#product-release1.0.0
 
-```
+# SSH (Alternative for CI/CD with deploy keys)
+npm install git+ssh://github.com/tekdi/audit-logs.git#product-release1.0.0```
 
 ### NestJS Integration
 
-Import the global module in your root `AppModule`:
+#### Step 1 — Add `tsconfig.json` path mapping
+
+Because the SDK uses package `exports` subpaths and NestJS typically uses `moduleResolution: "node"`, TypeScript needs an explicit pointer. Add this to your `tsconfig.json`:
+
+```json
+"paths": {
+  "@tekdi/audit-logger/nestjs": [
+    "node_modules/@tekdi/audit-logger/dist/nestjs"
+  ]
+}
+```
+
+#### Step 2 — Load env vars early in `main.ts`
+
+The SDK reads `process.env` at module initialization time (before NestJS `ConfigModule` runs). Add this at the **very top** of `main.ts`:
+
+```typescript
+import * as dotenv from "dotenv";
+dotenv.config(); // ← must be before any NestJS imports
+
+import { NestFactory } from "@nestjs/core";
+// ...rest of bootstrap
+```
+
+#### Step 3 — Register the global module
 
 ```typescript
 import { AuditLoggerModule } from '@tekdi/audit-logger/nestjs';
@@ -95,15 +118,17 @@ import { AuditLoggerModule } from '@tekdi/audit-logger/nestjs';
 @Module({
   imports: [
     AuditLoggerModule.forRoot({
-      // Options override env vars; all fields are optional.
-      // The SDK reads AUDIT_* env vars automatically.
+      serviceName: "your-service-name", // always pass explicitly to avoid startup errors
+      // All other options are optional — the SDK reads AUDIT_* env vars automatically.
     }),
   ],
 })
-export class AppModule {}
-````
+export class YourModule {}
+```
 
-Inject and use `AuditLoggerService` in any service:
+> **Note:** `AuditLoggerModule` is decorated `@Global()`, so once registered in any module it is available application-wide.
+
+#### Step 4 — Inject and use `AuditLoggerService`
 
 ```typescript
 import { AuditLoggerService } from '@tekdi/audit-logger/nestjs';
@@ -115,13 +140,50 @@ export class CohortService {
   async createCohort(data: CreateCohortDto, actor: Actor) {
     const cohort = await this.cohortRepo.save(data);
 
-    // Convenience shorthand
-    await this.audit.created('COHORT', cohort.id, actor);
+    // Convenience shorthand — actor must have { id, name, role }
+    await this.audit.created(
+      'COHORT',
+      cohort.id,
+      { id: actor.id, name: actor.name, role: actor.role },
+    );
+
+    // Or full emit() for custom events
+    await this.audit.emit({
+      entityType: 'COHORT',
+      eventAction: 'COHORT_CREATED',
+      entityId: cohort.id,
+      actorId: actor.id,
+      actorName: actor.name,
+      userRole: actor.role,
+      metadata: { ...cohort },
+    });
 
     return cohort;
   }
+
+  async updateCohort(id: string, changes: any, oldData: any, actor: Actor) {
+    await this.cohortRepo.update(id, changes);
+
+    await this.audit.updated(
+      'COHORT',
+      id,
+      { id: actor.id, name: actor.name, role: actor.role },
+      { oldValue: oldData, newValue: changes }, // ← pass as object { oldValue, newValue }
+    );
+  }
+
+  async deleteCohort(id: string, actor: Actor) {
+    await this.cohortRepo.delete(id);
+
+    await this.audit.deleted(
+      'COHORT',
+      id,
+      { id: actor.id, name: actor.name, role: actor.role },
+    );
+  }
 }
 ```
+
 
 ### Plain Node.js / Express Integration
 
