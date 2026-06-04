@@ -79,10 +79,10 @@ Install the SDK into any microservice that needs to emit audit events:
 
 ```bash
 # SSH (recommended for CI/CD)
-npm install git+ssh://git@github.com:tekdi/audit-logs.git
+npm install git+ssh://git@github.com:tekdi/audit-logs.git --legacy-peer-deps
 
 # HTTPS
-npm install git+https://github.com/tekdi/audit-logs.git
+npm install git+https://github.com/tekdi/audit-logs.git --legacy-peer-deps
 ```
 
 ### NestJS Integration
@@ -256,6 +256,7 @@ The `apps/audit-api` directory is a **standalone NestJS application**. It is the
 ### Starting the Audit API
 
 ```bash
+npm install  #inside root folder
 cd apps/audit-api
 cp .env.example .env   # configure your values
 npm install
