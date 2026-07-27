@@ -67,7 +67,12 @@ export async function initializeAuditSchema(dataSource: DataSource): Promise<voi
         const mapping = JSON.parse(mappingJson);
         const services = Object.keys(mapping);
         for (const service of services) {
-          const tableName = `audit_logs_${service.replace(/-/g, '_')}`;
+          const safeName = service.replace(/-/g, '_');
+          if (!/^[a-z0-9_]+$/.test(safeName)) {
+            console.error(`Skipping unsafe service name: ${service}`);
+            continue;
+          }
+          const tableName = `audit_logs_${safeName}`;
           await queryRunner.query(`
             CREATE TABLE IF NOT EXISTS ${tableName}
             PARTITION OF audit_logs FOR VALUES IN ('${service}');
@@ -82,6 +87,10 @@ export async function initializeAuditSchema(dataSource: DataSource): Promise<voi
     await queryRunner.query(`CREATE INDEX IF NOT EXISTS idx_audit_service_name ON audit_logs (service_name);`);
     await queryRunner.query(`CREATE INDEX IF NOT EXISTS idx_audit_entity_type ON audit_logs (entity_type);`);
     await queryRunner.query(`CREATE INDEX IF NOT EXISTS idx_audit_created_at ON audit_logs (created_at DESC);`);
+
+    // GIN indexes for JSONB columns
+    await queryRunner.query(`CREATE INDEX IF NOT EXISTS idx_audit_context_gin ON audit_logs USING GIN (context jsonb_path_ops);`);
+    await queryRunner.query(`CREATE INDEX IF NOT EXISTS idx_audit_metadata_gin ON audit_logs USING GIN (metadata jsonb_path_ops);`);
 
   } finally {
     await queryRunner.release();

@@ -71,6 +71,10 @@ export interface AuditConfig {
   autoPartitionEnabled: boolean;
   domainMappingJson: Record<string, DomainMapping>;
 
+  // Consumer Config
+  consumerEnabled: boolean;
+  consumerGroupId: string;
+
   // Observability
   sdkLogLevel: 'debug' | 'info' | 'warn' | 'error' | 'silent';
   sdkLogFailures: boolean;
@@ -177,6 +181,10 @@ export function buildConfig(overrides: Partial<AuditConfig> = {}): AuditConfig {
     materializeEnabled: overrides.materializeEnabled ?? parseBool(env['AUDIT_MATERIALIZE_ENABLED'], false),
     autoPartitionEnabled: overrides.autoPartitionEnabled ?? parseBool(env['AUDIT_AUTO_PARTITION_ENABLED'], false),
     domainMappingJson: overrides.domainMappingJson ?? parseJson<Record<string, DomainMapping>>(env['AUDIT_DOMAIN_MAPPING_JSON'], {}),
+
+    // Consumer Config
+    consumerEnabled: overrides.consumerEnabled ?? parseBool(env['AUDIT_CONSUMER_ENABLED'], false),
+    consumerGroupId: overrides.consumerGroupId ?? env['AUDIT_CONSUMER_GROUP_ID'] ?? 'audit-consumer-group',
 
     // Observability
     sdkLogLevel: (overrides.sdkLogLevel ?? env['AUDIT_SDK_LOG_LEVEL'] ?? 'warn') as AuditConfig['sdkLogLevel'],

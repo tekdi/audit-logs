@@ -51,3 +51,7 @@ CREATE TABLE IF NOT EXISTS audit_logs_default
 CREATE INDEX IF NOT EXISTS idx_audit_service_name  ON audit_logs (service_name);
 CREATE INDEX IF NOT EXISTS idx_audit_entity_type   ON audit_logs (entity_type);
 CREATE INDEX IF NOT EXISTS idx_audit_created_at    ON audit_logs (created_at DESC);
+
+-- GIN indexes for JSONB columns
+CREATE INDEX IF NOT EXISTS idx_audit_context_gin  ON audit_logs USING GIN (context  jsonb_path_ops);
+CREATE INDEX IF NOT EXISTS idx_audit_metadata_gin ON audit_logs USING GIN (metadata jsonb_path_ops);
