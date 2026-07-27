@@ -44,6 +44,21 @@ AUDIT_ENABLED=true
 AUDIT_MODE=kafka                    # kafka | api | hybrid
 AUDIT_ENV=development
 
+# ─── Standalone Consumer (Optional - Enable on ONE service to persist directly to DB)
+AUDIT_CONSUMER_ENABLED=true                  # Set true on 1 service to consume & persist events
+AUDIT_CONSUMER_GROUP_ID=user-service-audit-group
+
+# ─── Database (Required ONLY if AUDIT_CONSUMER_ENABLED=true) ───
+DB_HOST=localhost
+DB_PORT=5432
+DB_USER=postgres
+DB_PASSWORD=postgres
+DB_NAME=audit_service_db
+
+# ─── Message Templates (Option A: JSON File | Option B: Inline JSON) ───
+AUDIT_TEMPLATES_FILE=./src/config/audit-templates.json
+# AUDIT_TEMPLATES_JSON='[{"serviceName":"user-service","entityType":"USER","eventType":"CREATE","eventAction":"USER_CREATED","languageCode":"en","template":"User {{metadata.name}} created."}]'
+
 # ─── Kafka (if AUDIT_MODE is kafka or hybrid) ─────────────
 KAFKA_BROKERS=localhost:9092
 KAFKA_TOPIC=audit.events
@@ -51,10 +66,10 @@ KAFKA_CLIENT_ID=user-service
 KAFKA_SSL_ENABLED=false
 KAFKA_PRODUCER_TIMEOUT_MS=5000
 
-# ─── Audit API Fallback (if AUDIT_MODE is api or hybrid) ──
+# ─── Audit API Fallback (Only if using central audit-api service) ──
 AUDIT_API_BASE_URL=http://localhost:3001/api/v1
 AUDIT_API_KEY=your-shared-secret-key
-AUDIT_API_ENABLED=true
+AUDIT_API_ENABLED=false
 AUDIT_API_TIMEOUT_MS=8000
 
 # ─── Local Buffer (safety net when all transports fail) ───
@@ -78,14 +93,40 @@ AUDIT_PII_MASK_CONFIG_JSON='{"email":{"showFirst":2,"showDomain":true}}'
 # ─── Localization ─────────────────────────────────────────
 AUDIT_DEFAULT_LANGUAGE=en
 AUDIT_TEMPLATE_FALLBACK_LANGUAGE=en
-AUDIT_TEMPLATE_MAPPING_JSON='{
-  "user-service.USER.USER_CREATED": {"templateKey":"USER_CREATED"}
-}'
 
 # ─── Observability ────────────────────────────────────────
 AUDIT_SDK_LOG_LEVEL=info
 AUDIT_SDK_LOG_FAILURES=true
 ```
+
+### Step 2.1 — Adding Message Templates via JSON File (`audit-templates.json`)
+
+To avoid long `.env` strings, define your service's message templates in a dedicated JSON file (e.g. `./src/config/audit-templates.json`):
+
+```json
+[
+  {
+    "serviceName": "user-service",
+    "entityType": "USER",
+    "eventType": "CREATE",
+    "eventAction": "USER_CREATED",
+    "languageCode": "en",
+    "template": "User {{metadata.name}} ({{actorName}}) was created successfully."
+  },
+  {
+    "serviceName": "user-service",
+    "entityType": "USER",
+    "eventType": "UPDATE",
+    "eventAction": "USER_UPDATED",
+    "languageCode": "en",
+    "template": "User {{entityId}} profile updated by {{actorName}}."
+  }
+]
+```
+
+When `AUDIT_CONSUMER_ENABLED=true` starts up, it automatically syncs these template definitions into the shared PostgreSQL `message_templates` table.
+
+> **Note:** Event actions without an explicit template automatically fall back to clean default formatting (e.g. `"[USER-SERVICE] USER USER_CREATED performed."`).
 
 ### Step 3 — Register the Module (NestJS)
 
@@ -102,6 +143,8 @@ import { AuditLoggerModule } from '@tekdi/audit-logger/nestjs';
 })
 export class AppModule {}
 ```
+
+> **Note:** If `AUDIT_CONSUMER_ENABLED=true` in `.env` and TypeORM is connected in your application, `AuditLoggerModule` automatically starts the background Kafka consumer and initializes database partitions—no extra consumer code required!
 
 > **Note:** `AuditLoggerModule` is `@Global()` — register it once in the root module. All child modules get `AuditLoggerService` injected automatically.
 
