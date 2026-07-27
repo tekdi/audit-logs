@@ -105,6 +105,19 @@ Copy `sdk.env.example` from the repo root into your microservice and rename to `
 
 ---
 
+### Standalone Consumer & Persistence
+
+> Activated when `AUDIT_CONSUMER_ENABLED=true` in a microservice.
+
+| Variable | Default | Description |
+|---|---|---|
+| `AUDIT_CONSUMER_ENABLED` | `false` | Set `true` to enable background Kafka consumer persistence in this service. |
+| `AUDIT_CONSUMER_GROUP_ID` | `audit-consumer-group` | Kafka consumer group ID. |
+| `AUDIT_TEMPLATES_FILE` | — | Path to a local `.json` file containing template definitions. |
+| `AUDIT_TEMPLATES_JSON` | — | Inline JSON array of template objects to sync into DB on consumer startup. |
+
+---
+
 ### Observability
 
 | Variable | Default | Description |

@@ -227,12 +227,20 @@ Add these to the `.env` of **each producer microservice**:
 | `AUDIT_PII_HASH_ALGORITHM` | `sha256` | Hash algorithm |
 | `AUDIT_PII_ENCRYPT_KEY` | — | 32-byte base64 key (required for `encrypt`) |
 
+#### Consumer & Persistence (Optional Standalone Consumer)
+| Variable | Default | Description |
+|---|---|---|
+| `AUDIT_CONSUMER_ENABLED` | `false` | Enable Kafka consumer in this service to persist events directly to DB |
+| `AUDIT_CONSUMER_GROUP_ID` | `audit-consumer-group` | Kafka consumer group ID |
+| `AUDIT_TEMPLATES_FILE` | — | Path to a local `.json` file containing template definitions |
+| `AUDIT_TEMPLATES_JSON` | — | Inline JSON array of template objects to sync into DB on startup |
+
 #### Localization & Templates
 | Variable | Default | Description |
 |---|---|---|
 | `AUDIT_DEFAULT_LANGUAGE` | `en` | Default message language |
 | `AUDIT_TEMPLATE_FALLBACK_LANGUAGE` | `en` | Fallback language lookup |
-| `AUDIT_TEMPLATE_MAPPING_JSON` | `{}` | Event key → template key map |
+| `AUDIT_TEMPLATE_MAPPING_JSON` | `{}` | Optional event key → template key map |
 
 #### Observability
 | Variable | Default | Description |
