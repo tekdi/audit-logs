@@ -11,3 +11,7 @@ export { MessageTemplate } from './entities/message-template.entity';
 
 // Database Schema Initialization Utility
 export { initializeAuditSchema } from './database/schema-init';
+
+// Consumer & Multi-Service Standalone Support
+export { AuditConsumer } from './consumer/audit-consumer';
+export type { AuditConsumerOptions } from './consumer/audit-consumer';

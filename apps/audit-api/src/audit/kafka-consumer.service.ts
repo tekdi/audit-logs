@@ -36,7 +36,7 @@ export class KafkaConsumerService implements OnModuleInit, OnModuleDestroy {
       await this.consumer.connect();
       const topic = this.configService.get<string>('KAFKA_TOPIC', 'audit.events');
       
-      await this.consumer.subscribe({ topic, fromBeginning: true });
+      await this.consumer.subscribe({ topic, fromBeginning: false });
 
       await this.consumer.run({
         eachMessage: async ({ message }) => {

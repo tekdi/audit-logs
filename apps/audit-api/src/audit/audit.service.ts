@@ -86,10 +86,8 @@ export class AuditService implements OnModuleInit {
       const topic = this.configService.get<string>('KAFKA_TOPIC', 'audit.events');
       await this.kafkaProducer.send(topic, logRecord);
       
-      // In 'kafka' mode, we DON'T save directly. The consumer will do it.
-      if (mode === 'kafka') {
-        return logRecord;
-      }
+      // In 'kafka' and 'hybrid' mode, the consumer will handle the database write.
+      return logRecord;
     }
 
     // 4. Save directly if in 'api' or 'hybrid' mode (Hybrid saves twice? No, consumer might handle it differently)
@@ -123,7 +121,14 @@ export class AuditService implements OnModuleInit {
     const limit = Math.min(parseInt(query.limit) || 10, 100);
 
     qb.skip((page - 1) * limit).take(limit);
-    qb.orderBy('log.created_at', query.order === 'asc' ? 'ASC' : 'DESC');
+    qb.orderBy('log.createdAt', query.order === 'asc' ? 'ASC' : 'DESC');
+
+    // Optimization: Exclude heavy JSONB columns (context, metadata) from list
+    qb.select([
+      'log.id', 'log.serviceName', 'log.entityType', 'log.eventType',
+      'log.eventAction', 'log.entityId', 'log.actorId', 'log.humanMessage',
+      'log.status', 'log.createdAt'
+    ]);
 
     const [items, total] = await qb.getManyAndCount();
 
